@@ -3,19 +3,59 @@ frontend:
   phases:
     preBuild:
       commands:
-        - if [ -n "$AMPLIFY_MONOREPO_APP_ROOT" ]; then cd $AMPLIFY_MONOREPO_APP_ROOT; fi
-        - corepack enable
-        - corepack prepare pnpm@8.0.0 --activate
+        # Install specific Node.js version
+        - nvm install 20.11.1
+        - nvm use 20.11.1
+        # Verify Node.js installation
+        - |
+          if ! node --version; then
+            echo "Node.js installation failed"
+            exit 1
+          fi
+        # Install and verify pnpm
+        - npm install -g pnpm
+        - pnpm --version
+        # Install dependencies
         - pnpm install --frozen-lockfile
+        # Create and verify environment file
+        - |
+          echo "Creating .env.production file..."
+          cat << EOF > .env.production
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+          NEXT_PUBLIC_CLERK_SIGN_IN_URL=/signin
+          NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
+          NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
+          NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+          EOF
+        # Verify environment variables
+        - |
+          if [ -z "$CLERK_SECRET_KEY" ] || [ -z "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" ]; then
+            echo "Error: Required Clerk environment variables are not set"
+            exit 1
+          fi
+        # Verify environment file
+        - |
+          if [ ! -s .env.production ]; then
+            echo "Error: .env.production file is empty or not created"
+            exit 1
+          fi
+          echo "Environment file created successfully:"
+          cat .env.production
     build:
       commands:
-        - if [ -n "$AMPLIFY_MONOREPO_APP_ROOT" ]; then cd $AMPLIFY_MONOREPO_APP_ROOT; fi
+        - |
+          if [ -z "$CLERK_SECRET_KEY" ]; then
+            echo "Error: CLERK_SECRET_KEY is not set in environment"
+            exit 1
+          fi
         - pnpm run build
   artifacts:
-    # For Next.js builds the output directory is .next. Adjust if you export static files instead.
     baseDirectory: .next
     files:
       - '**/*'
   cache:
     paths:
+      - .next/cache/**/*
       - node_modules/**/*
+      - ~/.pnpm-store/**/*
