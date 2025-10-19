@@ -192,6 +192,18 @@ export default function UltraQuickSurvey() {
   const handleInfoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (userInfo.email && userInfo.mobile) {
+      // Send user info to leads API for lead generation
+      fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userInfo.email,
+          phone: userInfo.mobile
+        })
+      }).catch((err) => {
+        // Optionally handle error, but don't block user
+        console.error('Lead API error:', err);
+      });
       setStep('survey');
     }
   };
